@@ -1,0 +1,828 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Boat Watch</title>
+<style>
+  :root {
+    --bg: #0d1520;
+    --panel: #141f2e;
+    --panel-2: #1b293b;
+    --line: #26374d;
+    --ink: #e8eef6;
+    --dim: #8fa3bb;
+    --accent: #4cc2ff;
+    --go: #37d67a;
+    --stop: #ff5f56;
+    --warn: #ffb020;
+  }
+  * { box-sizing: border-box; }
+  body {
+    margin: 0;
+    font: 14px/1.5 -apple-system, BlinkMacSystemFont, "Segoe UI", sans-serif;
+    background: var(--bg);
+    color: var(--ink);
+    -webkit-font-smoothing: antialiased;
+  }
+  header {
+    display: flex; align-items: center; gap: 12px;
+    padding: 12px 18px; border-bottom: 1px solid var(--line);
+    background: var(--panel);
+  }
+  header h1 { font-size: 16px; margin: 0; font-weight: 650; letter-spacing: .2px; }
+  header .sub { color: var(--dim); font-size: 12.5px; }
+  .pill {
+    margin-left: auto; display: flex; align-items: center; gap: 7px;
+    background: var(--panel-2); border: 1px solid var(--line);
+    padding: 5px 11px; border-radius: 999px; font-size: 12.5px; color: var(--dim);
+  }
+  .dot { width: 8px; height: 8px; border-radius: 50%; background: var(--dim); }
+  .dot.live { background: var(--go); box-shadow: 0 0 0 3px rgba(55,214,122,.18); }
+  .dot.busy { background: var(--warn); }
+  .dot.bad { background: var(--stop); }
+
+  main { display: grid; grid-template-columns: minmax(0,1fr) 340px; gap: 16px; padding: 16px; }
+  @media (max-width: 900px) { main { grid-template-columns: minmax(0,1fr); } }
+
+  .stage {
+    position: relative; background: #000; border: 1px solid var(--line);
+    border-radius: 12px; overflow: hidden; aspect-ratio: 16/9;
+    display: flex; align-items: center; justify-content: center;
+  }
+  .stage video, .stage canvas {
+    position: absolute; inset: 0; width: 100%; height: 100%; object-fit: contain;
+  }
+  .stage video.mirror { transform: scaleX(-1); }
+  .stage canvas.mirror { transform: scaleX(-1); }
+  .placeholder { color: var(--dim); text-align: center; padding: 24px; z-index: 2; max-width: 420px; }
+  .placeholder h2 { font-size: 15px; color: var(--ink); margin: 0 0 6px; }
+  .flash {
+    position: absolute; inset: 0; border: 0 solid var(--stop);
+    pointer-events: none; transition: border-width .12s ease; z-index: 3;
+  }
+  .flash.on { border-width: 6px; }
+
+  .panel {
+    background: var(--panel); border: 1px solid var(--line);
+    border-radius: 12px; padding: 14px; margin-bottom: 14px;
+  }
+  .panel h3 {
+    margin: 0 0 10px; font-size: 11px; letter-spacing: .09em;
+    text-transform: uppercase; color: var(--dim); font-weight: 650;
+  }
+  label { display: block; font-size: 12.5px; color: var(--dim); margin: 10px 0 4px; }
+  label:first-of-type { margin-top: 0; }
+  select, input[type=number], button {
+    width: 100%; font: inherit; color: var(--ink);
+    background: var(--panel-2); border: 1px solid var(--line);
+    border-radius: 8px; padding: 7px 9px;
+  }
+  select:focus, input:focus, button:focus { outline: 2px solid var(--accent); outline-offset: 1px; }
+  .row { display: flex; gap: 8px; }
+  .row > * { flex: 1; min-width: 0; }
+  button { cursor: pointer; font-weight: 600; }
+  button:hover { border-color: var(--accent); }
+  button.primary { background: var(--accent); color: #04202e; border-color: var(--accent); }
+  button.primary:hover { filter: brightness(1.08); }
+  button:disabled { opacity: .45; cursor: not-allowed; }
+  .check { display: flex; align-items: center; gap: 8px; margin-top: 10px; font-size: 13px; color: var(--ink); }
+  .check input { width: auto; }
+  .hint { font-size: 11.5px; color: var(--dim); margin-top: 6px; }
+  .hint.good { color: var(--go); }
+  button.icon { flex: 0 0 auto; width: 38px; padding: 7px 0; font-size: 15px; }
+  #iphoneHelp {
+    margin-top: 10px; font-size: 11.5px; color: var(--dim);
+    background: var(--panel-2); border: 1px solid var(--line);
+    border-radius: 8px; padding: 8px 10px;
+  }
+  #iphoneHelp summary { cursor: pointer; color: var(--accent); font-weight: 600; }
+  #iphoneHelp p { margin: 8px 0 0; }
+  #iphoneHelp ul { margin: 6px 0 0; padding-left: 18px; }
+  #iphoneHelp li { margin: 2px 0; }
+  #iphoneHelp b { color: var(--ink); }
+  .val { color: var(--accent); font-variant-numeric: tabular-nums; }
+
+  #tracks:empty::after, #log:empty::after {
+    content: attr(data-empty); color: var(--dim); font-size: 12.5px;
+  }
+  .track {
+    display: flex; align-items: center; gap: 8px; padding: 6px 0;
+    border-bottom: 1px solid var(--line); font-size: 12.5px;
+  }
+  .track:last-child { border-bottom: 0; }
+  .track .id { color: var(--dim); font-variant-numeric: tabular-nums; min-width: 26px; }
+  .track .state { font-weight: 600; }
+  .track .state.moving { color: var(--go); }
+  .track .state.stopped { color: var(--stop); }
+  .track .drift { margin-left: auto; color: var(--dim); font-variant-numeric: tabular-nums; }
+
+  #log { max-height: 230px; overflow-y: auto; font-size: 12.5px; }
+  #log div { padding: 4px 0; border-bottom: 1px solid var(--line); display: flex; gap: 8px; }
+  #log div:last-child { border-bottom: 0; }
+  #log time { color: var(--dim); font-variant-numeric: tabular-nums; }
+  #log .alert { color: var(--stop); font-weight: 600; }
+  #log .info { color: var(--dim); }
+  #selftest { padding: 16px; font-family: ui-monospace, Menlo, monospace; white-space: pre; font-size: 12.5px; }
+</style>
+</head>
+<body>
+
+<header>
+  <h1>⚓︎ Boat Watch</h1>
+  <span class="sub">beeps when a boat stops in frame</span>
+  <span class="pill"><span class="dot" id="statusDot"></span><span id="statusText">idle</span></span>
+</header>
+
+<main>
+  <div>
+    <div class="stage">
+      <video id="video" playsinline muted></video>
+      <canvas id="overlay"></canvas>
+      <div class="flash" id="flash"></div>
+      <div class="placeholder" id="placeholder">
+        <h2>Pick a source and press Start</h2>
+        Chrome will ask for camera access the first time. Nothing leaves this
+        machine — the detector runs in the page.
+      </div>
+    </div>
+    <div class="panel" style="margin-top:14px">
+      <h3>Activity</h3>
+      <div id="log" data-empty="Events will appear here."></div>
+    </div>
+  </div>
+
+  <div>
+    <div class="panel">
+      <h3>Video source</h3>
+      <label for="source">Input</label>
+      <div class="row">
+        <select id="source"></select>
+        <button id="refreshBtn" class="icon" title="Look for cameras again">&#8635;</button>
+      </div>
+      <div class="row" style="margin-top:10px">
+        <button id="startBtn" class="primary">Start</button>
+        <button id="stopBtn" disabled>Stop</button>
+      </div>
+      <div class="check">
+        <input type="checkbox" id="mirror"><label for="mirror" style="margin:0">Mirror the image</label>
+      </div>
+      <div class="hint" id="sourceHint">Camera names appear once you allow access.</div>
+      <details id="iphoneHelp" hidden>
+        <summary>Using your iPhone as the camera</summary>
+        <p>macOS only offers the iPhone to a <em>browser</em> when the phone is in
+        Apple's &ldquo;magic pose&rdquo;. All five have to be true at once:</p>
+        <ul>
+          <li>landscape orientation</li>
+          <li>screen off and locked</li>
+          <li>resting still &mdash; not in your hand</li>
+          <li>rear camera unobstructed</li>
+          <li>near the Mac, Wi-Fi and Bluetooth on</li>
+        </ul>
+        <p>Prop it in a stand, lock it, leave it alone, then press &#8635;. Once it
+        connects you can pick the phone up and move it freely &mdash; the pose is only
+        needed to make the connection.</p>
+        <p>Still nothing? Some Chrome builds miss Continuity Camera even in the pose.
+        Safari is reliable here &mdash; double-click <b>Boat Watch (Safari).app</b>.</p>
+      </details>
+      <input type="file" id="fileInput" accept="video/*" hidden>
+    </div>
+
+    <div class="panel">
+      <h3>What to watch</h3>
+      <label for="klass">Look for</label>
+      <select id="klass">
+        <option value="boat" selected>boat</option>
+        <option value="person">person (easy indoor test)</option>
+        <option value="car">car</option>
+        <option value="truck">truck</option>
+        <option value="bird">bird</option>
+      </select>
+      <label for="conf">Confidence threshold <span class="val" id="confVal">0.35</span></label>
+      <input type="number" id="conf" min="0.05" max="0.9" step="0.05" value="0.35">
+      <div class="hint">Lower it for small or distant boats.</div>
+    </div>
+
+    <div class="panel">
+      <h3>When to beep</h3>
+      <label for="stopSeconds">Hold still for (seconds)</label>
+      <input type="number" id="stopSeconds" min="1" max="120" step="1" value="6">
+      <label for="moveThreshold">Movement allowed while stopped</label>
+      <input type="number" id="moveThreshold" min="0.02" max="1" step="0.01" value="0.12">
+      <div class="hint">A fraction of the boat's own size, so distance doesn't matter.</div>
+      <label for="repeatSeconds">Re-beep every (seconds, 0 = once)</label>
+      <input type="number" id="repeatSeconds" min="0" max="3600" step="5" value="60">
+      <div class="check">
+        <input type="checkbox" id="alertStatic">
+        <label for="alertStatic" style="margin:0">Also beep for boats already parked at start</label>
+      </div>
+      <div class="check">
+        <input type="checkbox" id="soundOn" checked>
+        <label for="soundOn" style="margin:0">Sound on</label>
+      </div>
+    </div>
+
+    <div class="panel">
+      <h3>Tracked now</h3>
+      <div id="tracks" data-empty="Nothing in frame."></div>
+    </div>
+  </div>
+</main>
+
+<script src="https://cdn.jsdelivr.net/npm/@tensorflow/tfjs@4.22.0/dist/tf.min.js"></script>
+<script src="https://cdn.jsdelivr.net/npm/@tensorflow-models/coco-ssd@2.2.3/dist/coco-ssd.min.js"></script>
+<script>
+"use strict";
+
+/* ------------------------------------------------------------------ *
+ * Motion bookkeeping — one Track per detected boat.
+ * Mirrors boat_watch.py so both versions decide "stopped" the same way.
+ * ------------------------------------------------------------------ */
+class Track {
+  constructor(id, now) {
+    this.id = id;
+    this.firstSeen = now;
+    this.lastSeen = now;
+    this.history = [];          // {t, cx, cy, diag}
+    this.minX = this.maxX = this.minY = this.maxY = null;
+    this.maxDiag = 1;
+    this.hasMoved = false;
+    this.isStopped = false;
+    this.stoppedSince = null;
+    this.lastAlert = null;
+    this.box = null;
+    this.score = 0;
+  }
+
+  get age() { return this.lastSeen - this.firstSeen; }
+
+  update(box, now, windowSec) {
+    const [x1, y1, x2, y2] = box;
+    const cx = (x1 + x2) / 2, cy = (y1 + y2) / 2;
+    const diag = Math.max(Math.hypot(x2 - x1, y2 - y1), 1);
+
+    this.box = box;
+    this.lastSeen = now;
+    this.maxDiag = Math.max(this.maxDiag, diag);
+    this.history.push({ t: now, cx, cy, diag });
+    while (this.history.length > 2 && now - this.history[0].t > windowSec * 1.5) {
+      this.history.shift();
+    }
+
+    if (this.minX === null) {
+      this.minX = this.maxX = cx;
+      this.minY = this.maxY = cy;
+    } else {
+      this.minX = Math.min(this.minX, cx); this.maxX = Math.max(this.maxX, cx);
+      this.minY = Math.min(this.minY, cy); this.maxY = Math.max(this.maxY, cy);
+    }
+
+    // Total spread of the centre, against the boat's own size: real travel,
+    // not detector jitter.
+    const travel = Math.hypot(this.maxX - this.minX, this.maxY - this.minY);
+    if (travel / this.maxDiag > 0.8) this.hasMoved = true;
+  }
+
+  /* How far the centre wandered over the last `windowSec`, as a fraction of
+     the boat's size. null when there isn't enough history yet. */
+  wander(windowSec) {
+    const now = this.lastSeen;
+    const pts = this.history.filter(p => now - p.t <= windowSec);
+    if (pts.length < 3 || now - pts[0].t < windowSec * 0.8) return null;
+    const xs = pts.map(p => p.cx), ys = pts.map(p => p.cy);
+    const midX = (Math.min(...xs) + Math.max(...xs)) / 2;
+    const midY = (Math.min(...ys) + Math.max(...ys)) / 2;
+    const radius = Math.max(...pts.map(p => Math.hypot(p.cx - midX, p.cy - midY)));
+    const diag = pts.reduce((s, p) => s + p.diag, 0) / pts.length;
+    return radius / Math.max(diag, 1);
+  }
+
+  /* → {event, drift}; event is 'stopped' | 'still' | 'moving' | null */
+  evaluate(opts) {
+    const now = this.lastSeen;
+    const drift = this.wander(opts.stopSeconds);
+    if (drift === null) return { event: null, drift: null };
+
+    if (drift <= opts.moveThreshold) {
+      if (this.age < opts.minTrackSeconds) return { event: null, drift };
+      if (!(this.hasMoved || opts.alertStatic)) return { event: null, drift };
+      if (!this.isStopped) {
+        this.isStopped = true;
+        this.stoppedSince = now;
+        this.lastAlert = now;
+        return { event: "stopped", drift };
+      }
+      if (opts.repeatSeconds > 0 && now - this.lastAlert >= opts.repeatSeconds) {
+        this.lastAlert = now;
+        return { event: "still", drift };
+      }
+      return { event: null, drift };
+    }
+
+    const wasStopped = this.isStopped;
+    this.isStopped = false;
+    this.stoppedSince = null;
+    return { event: wasStopped ? "moving" : null, drift };
+  }
+}
+
+/* Greedy IoU matching keeps a stable id on each boat between frames. */
+class Tracker {
+  constructor() { this.tracks = new Map(); this.nextId = 1; }
+
+  static iou(a, b) {
+    const x1 = Math.max(a[0], b[0]), y1 = Math.max(a[1], b[1]);
+    const x2 = Math.min(a[2], b[2]), y2 = Math.min(a[3], b[3]);
+    const inter = Math.max(0, x2 - x1) * Math.max(0, y2 - y1);
+    if (inter <= 0) return 0;
+    const areaA = (a[2] - a[0]) * (a[3] - a[1]);
+    const areaB = (b[2] - b[0]) * (b[3] - b[1]);
+    return inter / (areaA + areaB - inter);
+  }
+
+  /* detections: [{box:[x1,y1,x2,y2], score}] → matched Track list */
+  update(detections, now, opts, startedAt) {
+    const pairs = [];
+    for (const [id, tr] of this.tracks) {
+      detections.forEach((d, di) => {
+        const iou = Tracker.iou(tr.box, d.box);
+        if (iou > 0.25) pairs.push({ iou, id, di });
+      });
+    }
+    pairs.sort((a, b) => b.iou - a.iou);
+
+    const usedTracks = new Set(), usedDets = new Set(), matched = [];
+    for (const p of pairs) {
+      if (usedTracks.has(p.id) || usedDets.has(p.di)) continue;
+      usedTracks.add(p.id); usedDets.add(p.di);
+      const tr = this.tracks.get(p.id);
+      tr.score = detections[p.di].score;
+      tr.update(detections[p.di].box, now, opts.stopSeconds);
+      matched.push(tr);
+    }
+
+    detections.forEach((d, di) => {
+      if (usedDets.has(di)) return;
+      const tr = new Track(this.nextId++, now);
+      // Appearing after startup means it got here by moving — so it is a
+      // candidate for a "stopped" alert.
+      if (now - startedAt > opts.startupGrace) tr.hasMoved = true;
+      tr.score = d.score;
+      tr.update(d.box, now, opts.stopSeconds);
+      this.tracks.set(tr.id, tr);
+      matched.push(tr);
+    });
+
+    for (const [id, tr] of this.tracks) {
+      if (now - tr.lastSeen > opts.forgetSeconds) this.tracks.delete(id);
+    }
+    return matched;
+  }
+
+  reset() { this.tracks.clear(); this.nextId = 1; }
+}
+
+/* ------------------------------------------------------------------ *
+ * Alert sound — a two-tone chime, no audio file needed.
+ * ------------------------------------------------------------------ */
+const Beeper = {
+  ctx: null,
+  arm() {
+    if (!this.ctx) this.ctx = new (window.AudioContext || window.webkitAudioContext)();
+    if (this.ctx.state === "suspended") this.ctx.resume();
+  },
+  beep(times = 2) {
+    if (!this.ctx) return;
+    const t0 = this.ctx.currentTime;
+    for (let i = 0; i < times; i++) {
+      const at = t0 + i * 0.34;
+      const osc = this.ctx.createOscillator();
+      const gain = this.ctx.createGain();
+      osc.type = "sine";
+      osc.frequency.setValueAtTime(880, at);
+      osc.frequency.exponentialRampToValueAtTime(660, at + 0.22);
+      gain.gain.setValueAtTime(0.0001, at);
+      gain.gain.exponentialRampToValueAtTime(0.35, at + 0.02);
+      gain.gain.exponentialRampToValueAtTime(0.0001, at + 0.26);
+      osc.connect(gain).connect(this.ctx.destination);
+      osc.start(at); osc.stop(at + 0.3);
+    }
+  }
+};
+
+/* ------------------------------------------------------------------ *
+ * App wiring
+ * ------------------------------------------------------------------ */
+const $ = id => document.getElementById(id);
+const video = $("video"), overlay = $("overlay"), ctx2d = overlay.getContext("2d");
+
+let model = null, stream = null, running = false, rafId = null;
+let tracker = new Tracker(), startedAt = 0, lastDetect = 0, activeDeviceId = "";
+const DETECT_INTERVAL_MS = 120;   // ~8 detections a second is plenty for boats
+
+function opts() {
+  return {
+    klass: $("klass").value,
+    conf: parseFloat($("conf").value) || 0.35,
+    stopSeconds: parseFloat($("stopSeconds").value) || 6,
+    moveThreshold: parseFloat($("moveThreshold").value) || 0.12,
+    repeatSeconds: parseFloat($("repeatSeconds").value) || 0,
+    alertStatic: $("alertStatic").checked,
+    minTrackSeconds: 2,
+    startupGrace: 4,
+    forgetSeconds: 2.5,
+  };
+}
+
+function status(text, kind = "") {
+  $("statusText").textContent = text;
+  $("statusDot").className = "dot " + kind;
+}
+
+function log(msg, cls = "") {
+  const row = document.createElement("div");
+  const t = document.createElement("time");
+  t.textContent = new Date().toLocaleTimeString();
+  const s = document.createElement("span");
+  s.className = cls; s.textContent = msg;
+  row.append(t, s);
+  $("log").prepend(row);
+  while ($("log").children.length > 100) $("log").lastChild.remove();
+}
+
+function flash() {
+  $("flash").classList.add("on");
+  setTimeout(() => $("flash").classList.remove("on"), 900);
+}
+
+/* ---------- source list ---------- */
+const IPHONE_RE = /iphone|continuity|ipad/i;
+
+async function listSources(preferValue) {
+  const sel = $("source");
+  const keep = preferValue || sel.value;
+  const devices = await navigator.mediaDevices.enumerateDevices().catch(() => []);
+  // Before permission is granted the browser returns one nameless placeholder with
+  // an empty deviceId — useless for picking a specific camera, so drop it.
+  const cams = devices.filter(d => d.kind === "videoinput" && d.deviceId);
+  const named = cams.filter(d => d.label);
+
+  sel.innerHTML = "";
+  if (named.length) {
+    named.forEach((d, i) => {
+      const o = document.createElement("option");
+      o.value = "cam:" + d.deviceId;
+      o.textContent = d.label;
+      sel.append(o);
+    });
+  } else {
+    const o = document.createElement("option");
+    o.value = "cam:"; o.textContent = "Default camera";
+    sel.append(o);
+  }
+  for (const [v, t] of [["screen", "Screen or window…"], ["file", "Video file…"]]) {
+    const o = document.createElement("option");
+    o.value = v; o.textContent = t;
+    sel.append(o);
+  }
+  if (keep && [...sel.options].some(o => o.value === keep)) sel.value = keep;
+
+  const phone = named.find(d => IPHONE_RE.test(d.label));
+  const hint = $("sourceHint");
+  if (!named.length) {
+    hint.className = "hint";
+    hint.textContent = "Press ↻ (or Start) and allow access to see camera names.";
+  } else if (phone) {
+    hint.className = "hint good";
+    hint.textContent = `iPhone camera found: ${phone.label}`;
+  } else {
+    hint.className = "hint";
+    hint.textContent = `${named.length} camera${named.length > 1 ? "s" : ""} found — no iPhone yet.`;
+  }
+  // Only nag about the magic pose once we can actually read labels.
+  $("iphoneHelp").hidden = !named.length || !!phone;
+  return { cams: named, phone };
+}
+
+/* The iPhone appears and disappears as it enters and leaves the "magic pose",
+   so make re-scanning a one-click thing. */
+async function refreshDevices() {
+  const btn = $("refreshBtn");
+  btn.disabled = true;
+  try {
+    // Labels stay hidden until the page has held a camera at least once.
+    if (!running) {
+      const probe = await navigator.mediaDevices.getUserMedia({ video: true }).catch(() => null);
+      if (probe) probe.getTracks().forEach(t => t.stop());
+    }
+    const { phone } = await listSources();
+    log(phone ? `iPhone camera available: ${phone.label}` : "Scanned — no iPhone camera offered.", "info");
+  } finally {
+    btn.disabled = false;
+  }
+}
+
+async function openSource() {
+  stopStream();
+  const choice = $("source").value;
+
+  activeDeviceId = "";
+
+  if (choice === "file") {
+    const file = await new Promise(res => {
+      const input = $("fileInput");
+      input.onchange = () => res(input.files[0] || null);
+      input.click();
+    });
+    if (!file) throw new Error("No file chosen.");
+    video.srcObject = null;
+    video.src = URL.createObjectURL(file);
+    video.loop = true;
+    log(`Playing ${file.name}`, "info");
+  } else if (choice === "screen") {
+    stream = await navigator.mediaDevices.getDisplayMedia({ video: true, audio: false });
+    video.srcObject = stream;
+    video.removeAttribute("src");
+    log("Capturing screen", "info");
+  } else {
+    const deviceId = choice.slice(4);
+    const constraints = {
+      video: deviceId
+        ? { deviceId: { exact: deviceId }, width: { ideal: 1280 }, height: { ideal: 720 } }
+        : { width: { ideal: 1280 }, height: { ideal: 720 } },
+      audio: false,
+    };
+    try {
+      stream = await navigator.mediaDevices.getUserMedia(constraints);
+    } catch (err) {
+      // Continuity Camera ids change between connections; fall back to any camera
+      // rather than dying on an id that no longer exists.
+      if (deviceId && (err.name === "OverconstrainedError" || err.name === "NotFoundError")) {
+        await listSources();
+        throw new Error("That camera is no longer connected — press ↻ and pick it again.");
+      }
+      throw err;
+    }
+    video.srcObject = stream;
+    video.removeAttribute("src");
+    const track = stream.getVideoTracks()[0];
+    activeDeviceId = track?.getSettings?.().deviceId || "";
+    log(`Camera open: ${track?.label || "camera"}`, "info");
+  }
+
+  await video.play();
+  await new Promise(res => {
+    if (video.videoWidth) return res();
+    video.onloadedmetadata = res;
+  });
+  overlay.width = video.videoWidth;
+  overlay.height = video.videoHeight;
+  $("placeholder").style.display = "none";
+}
+
+function stopStream() {
+  if (stream) { stream.getTracks().forEach(t => t.stop()); stream = null; }
+  if (video.src) { URL.revokeObjectURL(video.src); video.removeAttribute("src"); }
+  video.srcObject = null;
+}
+
+/* ---------- detection loop ---------- */
+async function loop() {
+  if (!running) return;
+  const now = performance.now() / 1000;
+
+  if (model && video.readyState >= 2 && now * 1000 - lastDetect >= DETECT_INTERVAL_MS) {
+    lastDetect = now * 1000;
+    const o = opts();
+    let raw = [];
+    try {
+      raw = await model.detect(video, 20, o.conf);
+    } catch (err) {
+      console.warn("detect failed", err);
+    }
+    const dets = raw
+      .filter(d => d.class === o.klass && d.score >= o.conf)
+      .map(d => ({ box: [d.bbox[0], d.bbox[1], d.bbox[0] + d.bbox[2], d.bbox[1] + d.bbox[3]], score: d.score }));
+
+    const tracks = tracker.update(dets, now, o, startedAt);
+    for (const tr of tracks) {
+      const { event, drift } = tr.evaluate(o);
+      if (event === "stopped") {
+        log(`${o.klass.toUpperCase()} STOPPED — #${tr.id}, drift ${drift.toFixed(3)}`, "alert");
+        if ($("soundOn").checked) Beeper.beep(2);
+        flash();
+      } else if (event === "still") {
+        const held = Math.round(now - tr.stoppedSince);
+        log(`#${tr.id} still stopped (${held}s)`, "alert");
+        if ($("soundOn").checked) Beeper.beep(1);
+      } else if (event === "moving") {
+        log(`#${tr.id} moving again`, "info");
+      }
+      tr.lastDrift = drift;
+    }
+    draw(tracks, o);
+    renderTracks(tracks, now, o);
+  }
+  rafId = requestAnimationFrame(loop);
+}
+
+function draw(tracks, o) {
+  ctx2d.clearRect(0, 0, overlay.width, overlay.height);
+  const fontPx = Math.max(13, overlay.width / 60);
+  ctx2d.lineWidth = Math.max(2, overlay.width / 420);
+  ctx2d.font = `600 ${fontPx}px -apple-system, sans-serif`;
+  ctx2d.textBaseline = "bottom";
+  for (const tr of tracks) {
+    const [x1, y1, x2, y2] = tr.box;
+    const color = tr.isStopped ? "#ff5f56" : "#37d67a";
+    ctx2d.strokeStyle = color;
+    ctx2d.strokeRect(x1, y1, x2 - x1, y2 - y1);
+    const label = `#${tr.id} ${tr.isStopped ? "STOPPED" : o.klass} ${tr.score.toFixed(2)}`;
+    const w = ctx2d.measureText(label).width + 10;
+    const h = fontPx + 8;
+    ctx2d.fillStyle = color;
+    ctx2d.fillRect(x1, Math.max(0, y1 - h), w, h);
+    ctx2d.fillStyle = "#0d1520";
+    ctx2d.fillText(label, x1 + 5, Math.max(h, y1) - 4);
+  }
+}
+
+function renderTracks(tracks, now, o) {
+  const host = $("tracks");
+  host.innerHTML = "";
+  for (const tr of tracks) {
+    const row = document.createElement("div");
+    row.className = "track";
+    const held = tr.isStopped ? ` ${Math.round(now - tr.stoppedSince)}s` : "";
+    row.innerHTML =
+      `<span class="id">#${tr.id}</span>` +
+      `<span class="state ${tr.isStopped ? "stopped" : "moving"}">` +
+      `${tr.isStopped ? "stopped" + held : "moving"}</span>` +
+      `<span class="drift">drift ${tr.lastDrift == null ? "—" : tr.lastDrift.toFixed(3)}` +
+      ` / ${o.moveThreshold}</span>`;
+    host.append(row);
+  }
+}
+
+/* ---------- start / stop ---------- */
+async function start() {
+  $("startBtn").disabled = true;
+  try {
+    Beeper.arm();                       // needs the click to unlock audio
+    if (!model) {
+      status("loading detector…", "busy");
+      model = await cocoSsd.load({ base: "lite_mobilenet_v2" });
+    }
+    status("opening source…", "busy");
+    await openSource();
+    // Labels are readable once permission is granted; point the list at the camera
+    // actually in use rather than letting it snap back to the first entry.
+    await listSources(activeDeviceId ? "cam:" + activeDeviceId : $("source").value);
+    tracker.reset();
+    startedAt = performance.now() / 1000;
+    lastDetect = 0;
+    running = true;
+    $("stopBtn").disabled = false;
+    status("watching", "live");
+    log(`Watching for '${opts().klass}' — beeping after ${opts().stopSeconds}s stopped.`, "info");
+    loop();
+  } catch (err) {
+    console.error(err);
+    status("error", "bad");
+    log(friendlyError(err), "alert");
+    $("startBtn").disabled = false;
+  }
+}
+
+function friendlyError(err) {
+  const n = err && err.name;
+  if (n === "NotAllowedError") return "Camera blocked. Click the camera icon in Chrome's address bar and allow it, then press Start.";
+  if (n === "NotFoundError") return "No camera found on that input.";
+  if (n === "NotReadableError") return "That camera is already in use by another app.";
+  if (n === "OverconstrainedError") return "That camera is no longer connected — press ↻ and pick it again.";
+  return (err && err.message) || String(err);
+}
+
+function stop() {
+  running = false;
+  if (rafId) cancelAnimationFrame(rafId);
+  stopStream();
+  tracker.reset();
+  ctx2d.clearRect(0, 0, overlay.width, overlay.height);
+  $("tracks").innerHTML = "";
+  $("placeholder").style.display = "";
+  $("startBtn").disabled = false;
+  $("stopBtn").disabled = true;
+  status("stopped");
+  log("Stopped.", "info");
+}
+
+/* ---------- events ---------- */
+$("startBtn").onclick = start;
+$("stopBtn").onclick = stop;
+$("conf").oninput = e => $("confVal").textContent = e.target.value;
+$("mirror").onchange = e => {
+  video.classList.toggle("mirror", e.target.checked);
+  overlay.classList.toggle("mirror", e.target.checked);
+};
+$("source").onchange = async () => {
+  if (!running) return;
+  try {
+    await openSource();
+    tracker.reset();
+    startedAt = performance.now() / 1000;
+  } catch (err) { log(friendlyError(err), "alert"); stop(); }
+};
+$("klass").onchange = () => { tracker.reset(); log(`Now watching for '${$("klass").value}'.`, "info"); };
+$("refreshBtn").onclick = refreshDevices;
+
+// Fires the moment the phone enters or leaves the magic pose.
+navigator.mediaDevices?.addEventListener?.("devicechange", async () => {
+  const before = $("source").value;
+  const { phone } = await listSources(before);
+  if (phone && !IPHONE_RE.test(currentSourceLabel())) {
+    log(`iPhone camera available: ${phone.label} — choose it under Input.`, "info");
+  }
+});
+
+function currentSourceLabel() {
+  const o = $("source").selectedOptions[0];
+  return o ? o.textContent : "";
+}
+
+listSources();
+status("idle");
+
+/* ------------------------------------------------------------------ *
+ * ?selftest — drives the stop logic with synthetic tracks, no camera.
+ * ------------------------------------------------------------------ */
+if (new URLSearchParams(location.search).has("selftest")) {
+  document.body.innerHTML = "<pre id='selftest'>running…</pre>";
+  const out = [];
+  let failures = 0;
+  const O = { stopSeconds: 6, moveThreshold: 0.12, minTrackSeconds: 2,
+              repeatSeconds: 20, alertStatic: false };
+  let seed = 1;
+  const rnd = () => { seed = (seed * 16807) % 2147483647; return seed / 2147483647; };
+  const J = () => (rnd() - 0.5) * 6;
+  const box = (x, y = 200) => [x + J(), y + J(), x + 120 + J(), y + 60 + J()];
+
+  function run(name, path, o = O, seconds = 45, fps = 15) {
+    seed = 1;
+    const tr = new Track(1, 0);
+    const events = [];
+    for (let i = 0; i < seconds * fps; i++) {
+      const t = i / fps;
+      tr.update(path(t), t, o.stopSeconds);
+      const { event } = tr.evaluate(o);
+      if (event) events.push([event, +t.toFixed(1)]);
+    }
+    out.push(name.padEnd(36) + JSON.stringify(events));
+    return events;
+  }
+  const check = (cond, msg) => { if (!cond) { failures++; out.push("   FAIL: " + msg); } };
+
+  let e = run("passing straight through", t => box(20 + t * 30));
+  check(e.length === 0, "a boat crossing the frame must not alert");
+
+  e = run("arrives at 8s, then parks", t => box(20 + Math.min(t, 8) * 30));
+  check(e[0] && e[0][0] === "stopped", "parking boat must alert");
+  check(e[0] && e[0][1] > 12 && e[0][1] < 16, "alert should land ~6s after halting");
+  check(e[1] && e[1][0] === "still" && Math.abs(e[1][1] - e[0][1] - 20) < 0.5, "repeat after 20s");
+
+  e = run("parked since startup (ignored)", t => box(300));
+  check(e.length === 0, "boat parked since startup must stay quiet");
+
+  e = run("parked since startup (alertStatic)", t => box(300), { ...O, alertStatic: true });
+  check(e[0] && e[0][0] === "stopped", "alertStatic must alert on a static boat");
+
+  e = run("stops at 5s, leaves at 25s",
+          t => box(20 + Math.min(t, 5) * 30 + Math.max(0, t - 25) * 30));
+  check(e.map(x => x[0]).join() === "stopped,moving", "stop then move-off");
+
+  e = run("anchored, bobbing on swell",
+          t => box(20 + Math.min(t, 6) * 30 + Math.sin(t * 2) * 4, 200 + Math.sin(t * 3) * 3));
+  check(e[0] && e[0][0] === "stopped", "gentle bobbing still counts as stopped");
+
+  e = run("repeatSeconds 0 → beep once", t => box(20 + Math.min(t, 8) * 30), { ...O, repeatSeconds: 0 });
+  check(e.map(x => x[0]).join() === "stopped", "no repeat when repeatSeconds is 0");
+
+  // Tracker: two boats crossing must keep their own ids.
+  const tk = new Tracker();
+  for (let i = 0; i < 40; i++) {
+    const t = i / 15;
+    tk.update([{ box: [t * 20, 100, t * 20 + 100, 160], score: .9 },
+               { box: [600 - t * 20, 300, 700 - t * 20, 360], score: .9 }],
+              t, { ...O, startupGrace: 4, forgetSeconds: 2.5 }, 0);
+  }
+  out.push("tracker ids".padEnd(36) + JSON.stringify([...tk.tracks.keys()]));
+  check(tk.tracks.size === 2 && [...tk.tracks.keys()].join() === "1,2",
+        "two boats must keep ids 1 and 2");
+
+  out.push("", failures === 0 ? "ALL CHECKS PASSED" : `${failures} CHECK(S) FAILED`);
+  document.getElementById("selftest").textContent = out.join("\n");
+  document.title = failures === 0 ? "selftest: pass" : "selftest: FAIL";
+}
+</script>
+</body>
+</html>
