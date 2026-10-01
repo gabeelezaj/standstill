@@ -3,7 +3,7 @@
 <head>
 <meta charset="utf-8">
 <meta name="viewport" content="width=device-width, initial-scale=1">
-<title>Boat Watch</title>
+<title>Standstill</title>
 <style>
   :root {
     --bg: #0d1520;
@@ -129,8 +129,8 @@
 <body>
 
 <header>
-  <h1>⚓︎ Boat Watch</h1>
-  <span class="sub">beeps when a boat stops in frame</span>
+  <h1>Standstill</h1>
+  <span class="sub">beeps when something stops in frame</span>
   <span class="pill"><span class="dot" id="statusDot"></span><span id="statusText">idle</span></span>
 </header>
 
@@ -183,7 +183,7 @@
         connects you can pick the phone up and move it freely &mdash; the pose is only
         needed to make the connection.</p>
         <p>Still nothing? Some Chrome builds miss Continuity Camera even in the pose.
-        Safari is reliable here &mdash; double-click <b>Boat Watch (Safari).app</b>.</p>
+        Safari is reliable here &mdash; double-click <b>Standstill (Safari).app</b>.</p>
       </details>
       <input type="file" id="fileInput" accept="video/*" hidden>
     </div>
@@ -236,7 +236,7 @@
 
 /* ------------------------------------------------------------------ *
  * Motion bookkeeping — one Track per detected boat.
- * Mirrors boat_watch.py so both versions decide "stopped" the same way.
+ * Mirrors standstill.py so both versions decide "stopped" the same way.
  * ------------------------------------------------------------------ */
 class Track {
   constructor(id, now) {

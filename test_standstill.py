@@ -1,7 +1,7 @@
 """End-to-end test of the alert path: synthetic boat tracks -> beep events."""
 import os, sys, math, random, types
 sys.path.insert(0, os.path.dirname(os.path.abspath(__file__)))
-from boat_watch import Track
+from standstill import Track
 
 OPTS = types.SimpleNamespace(stop_seconds=6.0, move_threshold=0.12,
                              min_track_seconds=2.0, repeat_seconds=20.0,

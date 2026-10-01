@@ -1,13 +1,14 @@
 #!/usr/bin/env python3
-"""Watch the webcam for boats and beep when one stops in frame.
+"""Watch a video feed and beep when something stops in frame.
 
+Looks for boats by default (--class-name picks person, car, truck, bird...).
 A boat that is simply present does nothing. A boat that crosses the frame and
 keeps going does nothing. A boat that comes to a halt and stays put triggers a
 beep.
 
 Usage:
-    python boat_watch.py --show
-    python boat_watch.py --stop-seconds 8 --move-threshold 0.10
+    python standstill.py --show
+    python standstill.py --stop-seconds 8 --move-threshold 0.10
 """
 
 import argparse
@@ -165,7 +166,7 @@ class Track:
 # --------------------------------------------------------------------------
 def parse_args():
     p = argparse.ArgumentParser(
-        description="Beep when a boat stops in the camera frame.",
+        description="Beep when something (a boat, by default) stops in the camera frame.",
         formatter_class=argparse.ArgumentDefaultsHelpFormatter,
     )
     p.add_argument(
@@ -359,7 +360,7 @@ def main():
                         frame, label, (x1, max(y1 - 8, 14)),
                         cv2.FONT_HERSHEY_SIMPLEX, 0.6, color, 2,
                     )
-                cv2.imshow("boat watch", frame)
+                cv2.imshow("standstill", frame)
                 if cv2.waitKey(1) & 0xFF in (ord("q"), 27):
                     break
     except KeyboardInterrupt:

@@ -1,16 +1,17 @@
-# Boat Watch
+# Standstill
 
-Watches a video feed and **beeps when a boat stops in frame**.
+Watches a video feed and **beeps when something stops in frame**. It looks for boats by default,
+but it can just as well watch for people, cars, trucks or birds.
 
-- A boat sitting in view: nothing.
-- A boat crossing the frame and carrying on: nothing.
-- A boat that comes to a halt and stays put: beep.
+- A boat (or whatever you are watching for) sitting in view: nothing.
+- One crossing the frame and carrying on: nothing.
+- One that comes to a halt and stays put: beep.
 
 Two versions, same detection logic:
 
 | | Chrome app | Terminal app |
 |---|---|---|
-| Start it | double-click **Boat Watch.app** | `.venv/bin/python boat_watch.py --show` |
+| Start it | double-click **Standstill.app** | `.venv/bin/python standstill.py --show` |
 | Camera permission | Chrome asks, once | needs Terminal added to System Settings → Camera |
 | Detector | COCO-SSD (TensorFlow.js) | YOLOv8 (Ultralytics) |
 | Accuracy | good | better, especially on small/distant boats |
@@ -19,8 +20,16 @@ Two versions, same detection logic:
 
 ## Chrome version (just double-click)
 
-Double-click **Boat Watch.app**. It starts a tiny local server and opens the page in
+Double-click **Standstill.app**. It starts a tiny local server and opens the page in
 Chrome. Pick a source, press **Start**, and allow the camera when Chrome asks.
+
+The `.app` launchers are not stored in the repository. Build them once from the AppleScript
+sources, in this folder next to `web/`:
+
+```bash
+osacompile -o "Standstill.app" launcher.applescript
+osacompile -o "Standstill (Safari).app" launcher-safari.applescript
+```
 
 First launch takes 20–30 seconds to download the detector (about 6 MB) and needs an
 internet connection; after that it is cached and starts immediately. Video never
@@ -66,7 +75,7 @@ needed to make the initial connection.
 
 If it still never appears, some Chrome builds miss Continuity Camera even in the pose
 ([Chromium issue 436126054](https://issues.chromium.org/issues/436126054)). Safari
-detects it reliably: double-click **Boat Watch (Safari).app** instead. The page and
+detects it reliably: double-click **Standstill (Safari).app** instead. The page and
 the beeping work identically there.
 
 As a last resort the terminal version talks to the camera directly through macOS and
@@ -119,7 +128,7 @@ python3 -m venv .venv && .venv/bin/pip install -r requirements.txt
 Then:
 
 ```bash
-.venv/bin/python boat_watch.py --show
+.venv/bin/python standstill.py --show
 ```
 
 macOS will refuse the camera until the app you launch it from — Terminal, iTerm — is
@@ -140,7 +149,7 @@ through, one arriving and parking, one bobbing at anchor, one that stops then le
 with no camera needed:
 
 ```bash
-.venv/bin/python test_boat_watch.py
+.venv/bin/python test_standstill.py
 ```
 
 (needs the terminal version set up first). For the browser version, open http://localhost:8777/?selftest=1 while the server runs.
@@ -150,11 +159,11 @@ with no camera needed:
 ## Files
 
 - `web/index.html` — the whole Chrome app, one file
-- `Boat Watch.app` — launcher, opens in Chrome
-- `Boat Watch (Safari).app` — same, but opens in Safari (use this for the iPhone camera)
+- `Standstill.app` — launcher, opens in Chrome (built from `launcher.applescript`)
+- `Standstill (Safari).app` — same, but opens in Safari (use this for the iPhone camera)
 - `start.command` — plain-shell fallback launcher
 - `launcher.applescript`, `launcher-safari.applescript` — sources for the app bundles
 
 Keep the launchers next to the `web` folder; the whole folder can be moved anywhere.
-- `boat_watch.py` — the terminal version
-- `test_boat_watch.py` — logic tests for the terminal version
+- `standstill.py` — the terminal version
+- `test_standstill.py` — logic tests for the terminal version

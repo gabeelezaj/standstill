@@ -1,4 +1,4 @@
--- Boat Watch launcher: serves the web app on localhost and opens it in Chrome.
+-- Standstill launcher: serves the web app on localhost and opens it in Chrome.
 -- Lives next to the "web" folder; move the whole folder wherever you like.
 
 set myPath to POSIX path of (path to me)

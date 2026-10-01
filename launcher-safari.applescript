@@ -1,4 +1,4 @@
--- Boat Watch launcher (Safari): use this one for the iPhone Continuity Camera,
+-- Standstill launcher (Safari): use this one for the iPhone Continuity Camera,
 -- which Safari detects more reliably than Chrome.
 -- Lives next to the "web" folder; move the whole folder wherever you like.
 
